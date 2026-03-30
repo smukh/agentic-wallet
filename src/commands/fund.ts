@@ -64,9 +64,9 @@ async function fundCoinbase(useJson: boolean): Promise<void> {
       stdio: ['pipe', 'pipe', 'pipe']
     }).trim();
   } catch {
-    if (useJson) jsonError(ExitCode.NOT_AUTHENTICATED, 'Coinbase wallet not authenticated', { setupCommand: 'npx @agent-arena/wallet setup --provider coinbase' });
+    if (useJson) jsonError(ExitCode.NOT_AUTHENTICATED, 'Coinbase wallet not authenticated', { setupCommand: 'npx agentic-wallet setup --provider coinbase' });
     console.log(chalk.yellow('⚠ Coinbase wallet not authenticated.'));
-    console.log(chalk.gray('Run: npx @agent-arena/wallet setup --provider coinbase'));
+    console.log(chalk.gray('Run: npx agentic-wallet setup --provider coinbase'));
     process.exit(ExitCode.NOT_AUTHENTICATED);
     return;
   }
@@ -122,9 +122,9 @@ async function fundTempo(useJson: boolean): Promise<void> {
       execSync('test -f "$HOME/.tempo/bin/tempo"', { stdio: 'pipe' });
       tempoCmd = '$HOME/.tempo/bin/tempo';
     } catch {
-      if (useJson) jsonError(ExitCode.PROVIDER_NOT_INSTALLED, 'Tempo CLI not installed', { setupCommand: 'npx @agent-arena/wallet setup --provider tempo' });
+      if (useJson) jsonError(ExitCode.PROVIDER_NOT_INSTALLED, 'Tempo CLI not installed', { setupCommand: 'npx agentic-wallet setup --provider tempo' });
       console.log(chalk.yellow('⚠ Tempo CLI not installed.'));
-      console.log(chalk.gray('Run: npx @agent-arena/wallet setup --provider tempo'));
+      console.log(chalk.gray('Run: npx agentic-wallet setup --provider tempo'));
       process.exit(ExitCode.PROVIDER_NOT_INSTALLED);
       return;
     }
@@ -173,12 +173,12 @@ async function fundOpenWallet(useJson: boolean): Promise<void> {
   const wallets = listAllWallets();
 
   if (wallets.length === 0) {
-    if (useJson) jsonError(ExitCode.WALLET_NOT_FOUND, 'No OpenWallet wallets found', { setupCommand: 'npx @agent-arena/wallet setup --provider openwallet' });
+    if (useJson) jsonError(ExitCode.WALLET_NOT_FOUND, 'No OpenWallet wallets found', { setupCommand: 'npx agentic-wallet setup --provider openwallet' });
     console.log(chalk.bold('Fund OpenWallet (Moonpay)'));
     console.log(chalk.gray('─'.repeat(50)));
     console.log();
     console.log(chalk.yellow('⚠ No OpenWallet wallets found.'));
-    console.log(chalk.gray('Run: npx @agent-arena/wallet setup --provider openwallet'));
+    console.log(chalk.gray('Run: npx agentic-wallet setup --provider openwallet'));
     process.exit(ExitCode.WALLET_NOT_FOUND);
     return;
   }

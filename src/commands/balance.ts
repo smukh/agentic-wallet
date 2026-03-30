@@ -325,7 +325,7 @@ function printBalanceSummary(results: WalletBalance[]): void {
 
   if (results.length === 0) {
     console.log(chalk.yellow('No wallets found across any provider.'));
-    console.log(chalk.gray('Setup a wallet: npx @agent-arena/wallet setup'));
+    console.log(chalk.gray('Setup a wallet: npx agentic-wallet setup'));
     return;
   }
 

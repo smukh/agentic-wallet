@@ -1,4 +1,4 @@
-# @agent-arena/wallet
+# agentic-wallet
 
 CLI for AI agents to create and manage wallets via **Coinbase**, **Tempo**, or **OpenWallet** providers.
 
@@ -15,41 +15,41 @@ We have **zero access** to your keys.
 ## Installation
 
 ```bash
-npm install -g @agent-arena/wallet
+npm install -g agentic-wallet
 ```
 
 Or use directly with npx:
 
 ```bash
-npx @agent-arena/wallet setup
+npx agentic-wallet setup
 ```
 
 ## Quick Start
 
 ```bash
 # See available wallet providers
-npx @agent-arena/wallet providers
+npx agentic-wallet providers
 
 # Set up a wallet (interactive provider selection)
-npx @agent-arena/wallet setup
+npx agentic-wallet setup
 
 # Or specify provider directly
-npx @agent-arena/wallet setup --provider coinbase
-npx @agent-arena/wallet setup --provider tempo
-npx @agent-arena/wallet setup --provider openwallet
+npx agentic-wallet setup --provider coinbase
+npx agentic-wallet setup --provider tempo
+npx agentic-wallet setup --provider openwallet
 
 # Check wallet balances across all providers
-npx @agent-arena/wallet balance --all
+npx agentic-wallet balance --all
 
 # Check wallet status
-npx @agent-arena/wallet status
+npx agentic-wallet status
 
 # Get funding instructions
-npx @agent-arena/wallet fund
+npx agentic-wallet fund
 
 # Backup and recovery (OpenWallet only)
-npx @agent-arena/wallet backup --name my-wallet
-npx @agent-arena/wallet recover --from /path/to/backup.json
+npx agentic-wallet backup --name my-wallet
+npx agentic-wallet recover --from /path/to/backup.json
 ```
 
 ## Non-Interactive Mode (For Autonomous Agents)
@@ -62,14 +62,14 @@ echo "your-secure-password" > ~/.secrets/wallet-password.txt
 chmod 600 ~/.secrets/wallet-password.txt
 
 # Create wallet without prompts
-npx @agent-arena/wallet setup \
+npx agentic-wallet setup \
   --provider openwallet \
   --name my-agent \
   --password-file ~/.secrets/wallet-password.txt \
   --non-interactive
 
 # Check balance (JSON output for programmatic use)
-npx @agent-arena/wallet balance --all --json
+npx agentic-wallet balance --all --json
 ```
 
 ## Commands
@@ -79,7 +79,7 @@ npx @agent-arena/wallet balance --all --json
 List available wallet providers and their features.
 
 ```bash
-npx @agent-arena/wallet providers
+npx agentic-wallet providers
 ```
 
 Output:
@@ -123,7 +123,7 @@ Available Wallet Providers
 Set up a new wallet with your chosen provider.
 
 ```bash
-npx @agent-arena/wallet setup [options]
+npx agentic-wallet setup [options]
 
 Options:
   -p, --provider <provider>  Wallet provider: coinbase, tempo, or openwallet
@@ -135,16 +135,16 @@ Options:
 
 ```bash
 # Interactive setup (prompts for provider)
-npx @agent-arena/wallet setup
+npx agentic-wallet setup
 
 # Coinbase - delegates to awal CLI
-npx @agent-arena/wallet setup --provider coinbase
+npx agentic-wallet setup --provider coinbase
 
 # Tempo - delegates to tempo CLI
-npx @agent-arena/wallet setup --provider tempo
+npx agentic-wallet setup --provider tempo
 
 # MoonPay local wallet - creates encrypted wallet on your machine
-npx @agent-arena/wallet setup --provider openwallet --name my-agent
+npx agentic-wallet setup --provider openwallet --name my-agent
 ```
 
 ### `status`
@@ -152,7 +152,7 @@ npx @agent-arena/wallet setup --provider openwallet --name my-agent
 Check wallet status and balance across providers.
 
 ```bash
-npx @agent-arena/wallet status [options]
+npx agentic-wallet status [options]
 
 Options:
   -p, --provider <provider>  Check specific provider (or "all")
@@ -163,7 +163,7 @@ Options:
 Get instructions to fund your wallet.
 
 ```bash
-npx @agent-arena/wallet fund [options]
+npx agentic-wallet fund [options]
 
 Options:
   -p, --provider <provider>  Wallet provider to fund
@@ -177,7 +177,7 @@ Uses the official Coinbase `awal` CLI. Keys are stored in Coinbase infrastructur
 
 ```bash
 # Setup installs and authenticates via email
-npx @agent-arena/wallet setup --provider coinbase
+npx agentic-wallet setup --provider coinbase
 
 # After setup, you can use awal directly:
 npx awal status
@@ -194,7 +194,7 @@ Uses the official Tempo CLI. Keys are stored locally with passkey authentication
 
 ```bash
 # Setup installs and authenticates via browser/passkey
-npx @agent-arena/wallet setup --provider tempo
+npx agentic-wallet setup --provider tempo
 
 # After setup, you can use tempo directly:
 tempo wallet -t whoami
@@ -210,7 +210,7 @@ Creates an encrypted wallet stored entirely on your local filesystem.
 
 ```bash
 # Setup creates encrypted MoonPay local wallet
-npx @agent-arena/wallet setup --provider openwallet --name my-agent
+npx agentic-wallet setup --provider openwallet --name my-agent
 
 # Wallet stored at: ~/.agent-arena/wallets/my-agent.json
 ```
@@ -237,7 +237,7 @@ After setting up your wallet, register with Agent Arena:
 
 ```bash
 # Get your wallet address
-npx @agent-arena/wallet status
+npx agentic-wallet status
 
 # Register with Agent Arena
 curl -X POST https://agentarena.site/api/register \
@@ -261,11 +261,11 @@ Agents can use this CLI programmatically:
 import { execSync } from 'child_process';
 
 // Setup MoonPay local wallet (non-interactive)
-execSync('npx @agent-arena/wallet setup --provider openwallet --name my-agent');
+execSync('npx agentic-wallet setup --provider openwallet --name my-agent');
 // Note: Will prompt for password interactively
 
 // Check status
-const status = execSync('npx @agent-arena/wallet status --provider openwallet').toString();
+const status = execSync('npx agentic-wallet status --provider openwallet').toString();
 console.log(status);
 ```
 

@@ -19,7 +19,7 @@ const PROVIDERS_DATA = [
       'Email-based authentication'
     ],
     caveats: ['Requires email verification'],
-    setupCommand: 'npx @agent-arena/wallet setup --provider coinbase',
+    setupCommand: 'npx agentic-wallet setup --provider coinbase',
     docsUrl: 'https://docs.cdp.coinbase.com/agentic-wallet/welcome'
   },
   {
@@ -35,7 +35,7 @@ const PROVIDERS_DATA = [
       'Passkey authentication (no passwords)'
     ],
     caveats: ['Requires browser for initial setup'],
-    setupCommand: 'npx @agent-arena/wallet setup --provider tempo',
+    setupCommand: 'npx agentic-wallet setup --provider tempo',
     docsUrl: 'https://docs.tempo.xyz/guide/using-tempo-with-ai'
   },
   {
@@ -51,7 +51,7 @@ const PROVIDERS_DATA = [
       'AES-256-GCM encryption'
     ],
     caveats: ['You manage backups and security'],
-    setupCommand: 'npx @agent-arena/wallet setup --provider openwallet',
+    setupCommand: 'npx agentic-wallet setup --provider openwallet',
     docsUrl: 'https://docs.openwallet.sh/'
   }
 ];
@@ -78,7 +78,7 @@ export async function providers(options: ProvidersOptions = {}): Promise<void> {
   console.log('   ' + chalk.green('✓') + ' Email-based authentication');
   console.log('   ' + chalk.yellow('⚠') + ' Requires email verification');
   console.log();
-  console.log(chalk.gray('   Setup: npx @agent-arena/wallet setup --provider coinbase'));
+  console.log(chalk.gray('   Setup: npx agentic-wallet setup --provider coinbase'));
   console.log(chalk.gray('   Docs:  https://docs.cdp.coinbase.com/agentic-wallet/welcome'));
   console.log();
 
@@ -93,7 +93,7 @@ export async function providers(options: ProvidersOptions = {}): Promise<void> {
   console.log('   ' + chalk.green('✓') + ' Passkey authentication (no passwords)');
   console.log('   ' + chalk.yellow('⚠') + ' Requires browser for initial setup');
   console.log();
-  console.log(chalk.gray('   Setup: npx @agent-arena/wallet setup --provider tempo'));
+  console.log(chalk.gray('   Setup: npx agentic-wallet setup --provider tempo'));
   console.log(chalk.gray('   Docs:  https://docs.tempo.xyz/guide/using-tempo-with-ai'));
   console.log();
 
@@ -108,7 +108,7 @@ export async function providers(options: ProvidersOptions = {}): Promise<void> {
   console.log('   ' + chalk.green('✓') + ' AES-256-GCM encryption');
   console.log('   ' + chalk.yellow('⚠') + ' You manage backups and security');
   console.log();
-  console.log(chalk.gray('   Setup: npx @agent-arena/wallet setup --provider openwallet'));
+  console.log(chalk.gray('   Setup: npx agentic-wallet setup --provider openwallet'));
   console.log(chalk.gray('   Docs:  https://docs.openwallet.sh/'));
   console.log();
 

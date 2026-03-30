@@ -31,7 +31,7 @@ export async function backupWallet(options: BackupOptions): Promise<void> {
   if (!wallet) {
     if (useJson) jsonError(ExitCode.WALLET_NOT_FOUND, `Wallet "${name}" not found`);
     console.error(chalk.red(`✗ Wallet "${name}" not found`));
-    console.log(chalk.gray('List wallets: npx @agent-arena/wallet status --provider openwallet'));
+    console.log(chalk.gray('List wallets: npx agentic-wallet status --provider openwallet'));
     process.exit(ExitCode.WALLET_NOT_FOUND);
   }
 
@@ -180,7 +180,7 @@ export async function backupWallet(options: BackupOptions): Promise<void> {
         address: wallet.address,
         chain: wallet.chain,
         createdAt: backupData.createdAt,
-        recoverCommand: `npx @agent-arena/wallet recover --from "${outputPath}"`
+        recoverCommand: `npx agentic-wallet recover --from "${outputPath}"`
       });
     } else {
       console.log();
@@ -193,7 +193,7 @@ export async function backupWallet(options: BackupOptions): Promise<void> {
       console.log(chalk.gray('─'.repeat(50)));
       console.log();
       console.log(chalk.bold('Recovery Command:'));
-      console.log(chalk.white(`  npx @agent-arena/wallet recover --from "${outputPath}"`));
+      console.log(chalk.white(`  npx agentic-wallet recover --from "${outputPath}"`));
       console.log();
       console.log(chalk.yellow('⚠ IMPORTANT:'));
       console.log(chalk.white('  • Store this backup file in a secure location'));
