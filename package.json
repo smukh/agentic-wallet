@@ -1,6 +1,6 @@
 {
   "name": "agentic-wallet",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "CLI for agents to create and manage MoonPay local wallets for ERC-8004 and x402 payments",
   "main": "dist/index.js",
   "bin": {

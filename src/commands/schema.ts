@@ -178,7 +178,7 @@ export async function schemaCommand(command?: string): Promise<void> {
   } else {
     const all = {
       cli: 'agent-wallet',
-      version: '1.0.2',
+      version: '1.0.3',
       commands: SCHEMAS
     };
     process.stdout.write(JSON.stringify(all, null, 2) + '\n');

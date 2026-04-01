@@ -16,7 +16,7 @@ const program = new Command();
 program
   .name('agent-wallet')
   .description('CLI for agents to create and manage wallets via Coinbase, Tempo (Stripe), OpenWallet (Moonpay), or Crossmint providers. Agent Arena NEVER stores your keys.')
-  .version('1.0.2');
+  .version('1.0.3');
 
 program
   .command('setup')
