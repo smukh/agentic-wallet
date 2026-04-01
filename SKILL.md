@@ -1,6 +1,6 @@
 ---
 name: agentic-wallet
-description: Create and manage crypto wallets for AI agents. Three providers — Coinbase (managed), Tempo/Stripe (passkey), MoonPay/OpenWallet (self-custody). Supports non-interactive mode, JSON output, backup/recovery, and multi-chain (Base, Ethereum, Arbitrum, Optimism, Polygon).
+description: Create and manage crypto wallets for AI agents. Four providers — Coinbase (managed), Tempo/Stripe (passkey), MoonPay/OpenWallet (self-custody), Crossmint (managed/API, 50+ chains). Supports non-interactive mode, JSON output, backup/recovery, and multi-chain.
 homepage: https://github.com/smukh/agentic-wallet
 metadata: {"openclaw": {"emoji": "wallet", "requires": {"bins": ["node"]}, "install": {"node": "agentic-wallet"}}}
 ---
@@ -32,7 +32,8 @@ Choose your wallet provider based on your requirements:
 IF you need compliance (KYT, OFAC screening)  → USE coinbase
 IF you need fast machine payments (~500ms)     → USE tempo
 IF you need full self-custody / offline access  → USE openwallet
-IF you need multi-chain support                → USE openwallet
+IF you need 50+ chains (EVM + Solana + Stellar) → USE crossmint
+IF you need custodial + non-custodial options  → USE crossmint
 ```
 
 | Provider | Company | Type | Key Storage | Best For |
@@ -40,6 +41,7 @@ IF you need multi-chain support                → USE openwallet
 | **coinbase** | Coinbase | Managed | Coinbase servers | Production agents, compliance, x402 |
 | **tempo** | Stripe | Passkey | Local + Tempo network | Machine payments, service discovery |
 | **openwallet** | MoonPay | Self-custody | Encrypted local file | Full control, offline, multi-chain |
+| **crossmint** | Crossmint | Managed/API | Crossmint infrastructure | 50+ chains, custodial & non-custodial |
 
 ---
 
@@ -55,7 +57,7 @@ npx agentic-wallet providers --json
 
 ```bash
 # Interactive (will prompt for password/auth)
-npx agentic-wallet setup --provider <coinbase|tempo|openwallet>
+npx agentic-wallet setup --provider <coinbase|tempo|openwallet|crossmint>
 
 # Non-interactive (for autonomous agents — openwallet only)
 npx agentic-wallet setup \
@@ -68,7 +70,7 @@ npx agentic-wallet setup \
 ```
 
 **Options:**
-- `--provider <name>` — Required. One of: `coinbase`, `tempo`, `openwallet`
+- `--provider <name>` — Required. One of: `coinbase`, `tempo`, `openwallet`, `crossmint`
 - `--chain <name>` — Target chain (default: `base`)
 - `--name <name>` — Wallet name for openwallet (default: `default`)
 - `--password-file <path>` — Path to file with encryption password (min 8 chars, chmod 600)
@@ -220,6 +222,18 @@ Features: Local encrypted storage, multi-chain, backup/recovery, policy-gated si
 Supported chains: Base, Ethereum, Arbitrum, Optimism, Polygon.
 Docs: https://docs.openwallet.sh/
 
+### Crossmint Wallet
+
+Managed wallet with API-first approach. Supports 50+ chains including EVM, Solana, and Stellar. Offers both custodial and non-custodial options.
+
+```bash
+npx agentic-wallet setup --provider crossmint
+```
+
+Features: 50+ chains, REST API + TypeScript SDK, custodial & non-custodial, transaction management.
+Prerequisite: Node.js 18+, browser for initial login. Install CLI: `npm install -g @crossmint/cli`
+Docs: https://docs.crossmint.com/introduction/platform-overview
+
 ---
 
 ## SUPPORTED CHAINS (MoonPay Local Wallet)
@@ -260,6 +274,7 @@ Docs: https://docs.openwallet.sh/
 - Coinbase docs: https://docs.cdp.coinbase.com/agentic-wallet/welcome
 - Tempo docs: https://docs.tempo.xyz/
 - OpenWallet docs: https://docs.openwallet.sh/
+- Crossmint docs: https://docs.crossmint.com/introduction/platform-overview
 
 ---
 
