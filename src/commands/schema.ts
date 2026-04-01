@@ -9,7 +9,7 @@ const SCHEMAS: Record<string, object> = {
     command: 'setup',
     description: 'Set up a new wallet with your chosen provider',
     options: {
-      provider: { type: 'string', required: true, enum: ['coinbase', 'tempo', 'openwallet'], description: 'Wallet provider' },
+      provider: { type: 'string', required: true, enum: ['coinbase', 'tempo', 'openwallet', 'crossmint'], description: 'Wallet provider' },
       chain: { type: 'string', required: false, default: 'base', enum: ['base', 'ethereum', 'arbitrum', 'optimism', 'polygon'], description: 'Target chain' },
       name: { type: 'string', required: false, default: 'default', description: 'Wallet name (openwallet only)' },
       'password-file': { type: 'string', required: false, description: 'Path to password file (non-interactive mode)' },
@@ -35,7 +35,7 @@ const SCHEMAS: Record<string, object> = {
     description: 'Check wallet balances across all providers',
     options: {
       all: { type: 'boolean', required: false, description: 'Check all providers at once' },
-      provider: { type: 'string', required: false, enum: ['coinbase', 'tempo', 'openwallet'], description: 'Check specific provider' },
+      provider: { type: 'string', required: false, enum: ['coinbase', 'tempo', 'openwallet', 'crossmint'], description: 'Check specific provider' },
       json: { type: 'boolean', required: false, description: 'Output as JSON' },
       fields: { type: 'string', required: false, description: 'Comma-separated fields to include (e.g. address,balanceUSDC)' }
     },
@@ -83,7 +83,7 @@ const SCHEMAS: Record<string, object> = {
     command: 'fund',
     description: 'Get instructions to fund your wallet',
     options: {
-      provider: { type: 'string', required: true, enum: ['coinbase', 'tempo', 'openwallet'], description: 'Wallet provider' },
+      provider: { type: 'string', required: true, enum: ['coinbase', 'tempo', 'openwallet', 'crossmint'], description: 'Wallet provider' },
       json: { type: 'boolean', required: false, description: 'Output as JSON' }
     },
     output: {
@@ -178,7 +178,7 @@ export async function schemaCommand(command?: string): Promise<void> {
   } else {
     const all = {
       cli: 'agent-wallet',
-      version: '1.0.0',
+      version: '1.0.2',
       commands: SCHEMAS
     };
     process.stdout.write(JSON.stringify(all, null, 2) + '\n');
