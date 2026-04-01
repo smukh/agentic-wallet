@@ -15,13 +15,13 @@ const program = new Command();
 
 program
   .name('agent-wallet')
-  .description('CLI for agents to create and manage wallets via Coinbase (Coinbase), Tempo (Stripe), or OpenWallet (Moonpay) providers. Agent Arena NEVER stores your keys.')
-  .version('1.0.0');
+  .description('CLI for agents to create and manage wallets via Coinbase, Tempo (Stripe), OpenWallet (Moonpay), or Crossmint providers. Agent Arena NEVER stores your keys.')
+  .version('1.0.2');
 
 program
   .command('setup')
   .description('Set up a new wallet with your chosen provider')
-  .option('-p, --provider <provider>', 'Wallet provider: coinbase, tempo, or openwallet')
+  .option('-p, --provider <provider>', 'Wallet provider: coinbase, tempo, openwallet, or crossmint')
   .option('-c, --chain <chain>', 'Target chain: base, ethereum, arbitrum, optimism, polygon (default: base)')
   .option('-n, --name <name>', 'Wallet name for openwallet provider (default: "default")')
   .option('--password-file <path>', 'Path to file containing encryption password (for non-interactive mode)')
@@ -33,7 +33,7 @@ program
   .command('balance')
   .description('Check wallet balances across all providers')
   .option('-a, --all', 'Check all providers at once')
-  .option('-p, --provider <provider>', 'Check specific provider: coinbase, tempo, or openwallet')
+  .option('-p, --provider <provider>', 'Check specific provider: coinbase, tempo, openwallet, or crossmint')
   .option('--json', 'Output as JSON for programmatic use')
   .option('--fields <fields>', 'Comma-separated fields to include (e.g. address,balanceUSDC)')
   .action(balanceCommand);

@@ -15,7 +15,7 @@ export async function fundWallet(options: FundOptions): Promise<void> {
 
   // Provider selection if not specified
   if (!provider) {
-    if (useJson) jsonError(ExitCode.INVALID_INPUT, '--provider is required in JSON/piped mode', { validProviders: ['coinbase', 'tempo', 'openwallet'] });
+    if (useJson) jsonError(ExitCode.INVALID_INPUT, '--provider is required in JSON/piped mode', { validProviders: ['coinbase', 'tempo', 'openwallet', 'crossmint'] });
     const answers = await inquirer.prompt([
       {
         type: 'list',
@@ -24,7 +24,8 @@ export async function fundWallet(options: FundOptions): Promise<void> {
         choices: [
           { name: 'Coinbase Agentic Wallet (Coinbase)', value: 'coinbase' },
           { name: 'Tempo Wallet (Stripe)', value: 'tempo' },
-          { name: 'OpenWallet Standard (Moonpay)', value: 'openwallet' }
+          { name: 'OpenWallet Standard (Moonpay)', value: 'openwallet' },
+          { name: 'Crossmint Wallet (Crossmint)', value: 'crossmint' }
         ]
       }
     ]);
@@ -42,6 +43,9 @@ export async function fundWallet(options: FundOptions): Promise<void> {
       break;
     case 'openwallet':
       await fundOpenWallet(useJson);
+      break;
+    case 'crossmint':
+      await fundCrossmint(useJson);
       break;
     default:
       if (useJson) jsonError(ExitCode.INVALID_INPUT, `Unknown provider: ${provider}`);
@@ -250,4 +254,47 @@ async function fundOpenWallet(useJson: boolean): Promise<void> {
   console.log(chalk.yellow('⚠ Important:'));
   console.log(chalk.white('  Make sure to send to the correct chain!'));
   console.log(chalk.white(`  Your wallet is on: ${selectedWallet.chain}`));
+}
+
+async function fundCrossmint(useJson: boolean): Promise<void> {
+  if (useJson) {
+    jsonOut({
+      ok: true,
+      provider: 'crossmint',
+      fundingMethods: [
+        { method: 'api', endpoint: 'POST /api/v1-alpha2/wallets/{walletId}/fund', description: 'Fund wallet via Crossmint API' },
+        { method: 'dashboard', url: 'https://www.crossmint.com/console', description: 'Fund via Crossmint Console dashboard' },
+        { method: 'direct_transfer', description: 'Send crypto directly to your Crossmint wallet address on any supported chain' },
+        { method: 'bridge', services: [
+          { name: 'Squid', url: 'https://app.squidrouter.com/' },
+          { name: 'Relay', url: 'https://relay.link/' },
+          { name: 'Across', url: 'https://app.across.to/' }
+        ]}
+      ]
+    });
+    return;
+  }
+
+  console.log(chalk.bold('Fund Crossmint Wallet'));
+  console.log(chalk.gray('─'.repeat(50)));
+  console.log();
+  console.log(chalk.cyan('Crossmint Funding Options:'));
+  console.log();
+  console.log('  1. ' + chalk.bold('Crossmint API:'));
+  console.log(chalk.white('     POST /api/v1-alpha2/wallets/{walletId}/fund'));
+  console.log(chalk.gray('     Requires API key. See: https://docs.crossmint.com/api-reference/wallets/fund-wallet'));
+  console.log();
+  console.log('  2. ' + chalk.bold('Crossmint Console Dashboard:'));
+  console.log('     https://www.crossmint.com/console');
+  console.log('     Log in and manage wallet balances directly');
+  console.log();
+  console.log('  3. ' + chalk.bold('Direct transfer:'));
+  console.log('     Send crypto to your Crossmint wallet address on any supported chain');
+  console.log();
+  console.log('  4. ' + chalk.bold('Bridge from another chain:'));
+  console.log('     - Squid: https://app.squidrouter.com/');
+  console.log('     - Relay: https://relay.link/');
+  console.log('     - Across: https://app.across.to/');
+  console.log();
+  console.log(chalk.gray('Docs: https://docs.crossmint.com/api-reference/wallets/fund-wallet'));
 }

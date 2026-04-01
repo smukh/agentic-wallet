@@ -37,7 +37,8 @@ export async function statusWallet(options: StatusOptions): Promise<void> {
             { name: 'All providers', value: 'all' },
             { name: 'Coinbase Agentic Wallet (Coinbase)', value: 'coinbase' },
             { name: 'Tempo Wallet (Stripe)', value: 'tempo' },
-            { name: 'OpenWallet Standard (Moonpay)', value: 'openwallet' }
+            { name: 'OpenWallet Standard (Moonpay)', value: 'openwallet' },
+            { name: 'Crossmint Wallet (Crossmint)', value: 'crossmint' }
           ]
         }
       ]);
@@ -55,6 +56,9 @@ export async function statusWallet(options: StatusOptions): Promise<void> {
   }
   if (provider === 'all' || provider === 'openwallet') {
     results.push(await getOpenWalletStatus(useJson));
+  }
+  if (provider === 'all' || provider === 'crossmint') {
+    results.push(await getCrossmintStatus(useJson));
   }
 
   if (useJson) {
@@ -196,6 +200,38 @@ async function getOpenWalletStatus(useJson: boolean): Promise<ProviderStatus> {
     chainId: w.chainId,
     encrypted: w.encrypted
   }));
+
+  return result;
+}
+
+async function getCrossmintStatus(useJson: boolean): Promise<ProviderStatus> {
+  const result: ProviderStatus = { provider: 'crossmint', name: 'Crossmint Wallet', status: 'not_installed' };
+
+  // Check if crossmint CLI is installed
+  try {
+    execSync('crossmint --version', { stdio: 'pipe' });
+  } catch {
+    return result;
+  }
+
+  // Check if authenticated
+  try {
+    const whoami = execSync('crossmint whoami 2>/dev/null', {
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+
+    if (whoami && !whoami.includes('not logged in') && !whoami.includes('Not logged in')) {
+      result.status = 'authenticated';
+      // Try to extract email or project info from whoami output
+      const emailMatch = whoami.match(/[\w.-]+@[\w.-]+\.\w+/);
+      if (emailMatch) result.address = emailMatch[0];
+    } else {
+      result.status = 'not_authenticated';
+    }
+  } catch {
+    result.status = 'not_authenticated';
+  }
 
   return result;
 }

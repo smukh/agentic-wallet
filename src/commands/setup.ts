@@ -25,7 +25,7 @@ interface SetupOptions {
   json?: boolean;
 }
 
-const PROVIDERS = ['coinbase', 'tempo', 'openwallet'] as const;
+const PROVIDERS = ['coinbase', 'tempo', 'openwallet', 'crossmint'] as const;
 type Provider = typeof PROVIDERS[number];
 
 export async function setupWallet(options: SetupOptions): Promise<void> {
@@ -76,6 +76,10 @@ export async function setupWallet(options: SetupOptions): Promise<void> {
           {
             name: 'OpenWallet Standard (Moonpay) — Self-custody, policy-gated signing',
             value: 'openwallet'
+          },
+          {
+            name: 'Crossmint Wallet (Crossmint) — API-first, 50+ chains, custodial or non-custodial',
+            value: 'crossmint'
           }
         ]
       }
@@ -106,6 +110,9 @@ export async function setupWallet(options: SetupOptions): Promise<void> {
       break;
     case 'openwallet':
       await setupOpenWallet(name, chain, useJson, passwordFile, nonInteractive);
+      break;
+    case 'crossmint':
+      await setupCrossmint(useJson);
       break;
   }
 }
@@ -444,5 +451,139 @@ async function setupOpenWallet(name: string, chain: string, useJson: boolean, pa
     if (useJson) jsonError(ExitCode.GENERAL_ERROR, 'Failed to create wallet');
     console.error(error);
     process.exit(ExitCode.GENERAL_ERROR);
+  }
+}
+
+async function setupCrossmint(useJson: boolean): Promise<void> {
+  if (!useJson) {
+    console.log(chalk.bold('Crossmint Wallet Setup'));
+    console.log(chalk.gray('─'.repeat(50)));
+    console.log();
+    console.log('This will use the Crossmint CLI to authenticate and create your wallet.');
+    console.log('Crossmint supports custodial and non-custodial wallets on 50+ chains.');
+    console.log();
+  }
+
+  // Check if crossmint CLI is available
+  const spinner = useJson ? null : ora('Checking for Crossmint CLI...').start();
+
+  let crossmintInstalled = false;
+  try {
+    execSync('crossmint --version', { stdio: 'pipe' });
+    crossmintInstalled = true;
+    spinner?.succeed('Crossmint CLI available');
+  } catch {
+    spinner?.info('Crossmint CLI not found. Installing...');
+  }
+
+  if (!crossmintInstalled) {
+    if (useJson) {
+      jsonError(ExitCode.PROVIDER_NOT_INSTALLED, 'Crossmint CLI not installed', {
+        installCommand: 'npm install -g @crossmint/cli'
+      });
+    }
+    console.log();
+    console.log(chalk.yellow('Run one of the following commands to install:'));
+    console.log();
+    console.log(chalk.white('  npm install -g @crossmint/cli'));
+    console.log(chalk.white('  brew tap crossmint/tap && brew install crossmint'));
+    console.log();
+    console.log(chalk.gray('After installation, run this setup command again.'));
+    console.log();
+    process.exit(ExitCode.PROVIDER_NOT_INSTALLED);
+    return;
+  }
+
+  // Check if already logged in
+  let alreadyLoggedIn = false;
+  try {
+    const whoami = execSync('crossmint whoami 2>/dev/null', {
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+    if (whoami && !whoami.includes('not logged in')) {
+      alreadyLoggedIn = true;
+      if (!useJson) {
+        console.log();
+        console.log(chalk.green('✓ Already authenticated with Crossmint'));
+        console.log(chalk.gray(whoami.trim()));
+      }
+    }
+  } catch {
+    // Not logged in
+  }
+
+  if (!alreadyLoggedIn) {
+    if (!useJson) {
+      console.log();
+      console.log(chalk.cyan('Starting Crossmint authentication...'));
+      console.log(chalk.yellow('⚠ This will open a browser for device authorization.'));
+      console.log();
+    }
+
+    const { proceed } = await inquirer.prompt([
+      {
+        type: 'confirm',
+        name: 'proceed',
+        message: 'Ready to open browser for Crossmint authentication?',
+        default: true
+      }
+    ]);
+
+    if (!proceed) {
+      if (useJson) jsonOut({ ok: false, provider: 'crossmint', message: 'Setup cancelled by user' });
+      else console.log(chalk.gray('Setup cancelled.'));
+      return;
+    }
+
+    try {
+      const child = spawn('crossmint', ['login', '--env', 'production'], {
+        stdio: 'inherit',
+        shell: true
+      });
+
+      child.on('close', (code) => {
+        if (code === 0) {
+          if (useJson) {
+            jsonOut({ ok: true, provider: 'crossmint', message: 'Crossmint wallet setup complete' });
+          } else {
+            console.log();
+            console.log(chalk.green('✓ Crossmint authentication complete!'));
+            console.log();
+            console.log(chalk.bold('Next steps:'));
+            console.log('  1. Create a project: crossmint projects create');
+            console.log('  2. Create API keys: crossmint keys create');
+            console.log('  3. Create a wallet via API or SDK');
+            console.log();
+            console.log(chalk.bold('Quick wallet creation via API:'));
+            console.log(chalk.gray('  curl -X POST https://www.crossmint.com/api/v1-alpha2/wallets \\'));
+            console.log(chalk.gray('    -H "X-API-KEY: <your-api-key>" \\'));
+            console.log(chalk.gray('    -H "Content-Type: application/json" \\'));
+            console.log(chalk.gray('    -d \'{"type": "evm-smart-wallet"}\''));
+            console.log();
+            console.log(chalk.gray('Docs: https://docs.crossmint.com/introduction/platform-overview'));
+          }
+        } else {
+          if (useJson) jsonError(ExitCode.GENERAL_ERROR, 'Crossmint authentication failed');
+          else console.error(chalk.red('✗ Crossmint authentication failed'));
+        }
+      });
+    } catch (error) {
+      if (useJson) jsonError(ExitCode.GENERAL_ERROR, 'Failed to start Crossmint authentication');
+      console.error(chalk.red('Failed to start Crossmint authentication'));
+      console.error(error);
+    }
+  } else {
+    if (useJson) {
+      jsonOut({ ok: true, provider: 'crossmint', message: 'Already authenticated with Crossmint' });
+    } else {
+      console.log();
+      console.log(chalk.bold('Next steps:'));
+      console.log('  1. Create a project: crossmint projects create');
+      console.log('  2. Create API keys: crossmint keys create');
+      console.log('  3. Create a wallet via API or SDK');
+      console.log();
+      console.log(chalk.gray('Docs: https://docs.crossmint.com/introduction/platform-overview'));
+    }
   }
 }

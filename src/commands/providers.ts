@@ -53,6 +53,22 @@ const PROVIDERS_DATA = [
     caveats: ['You manage backups and security'],
     setupCommand: 'npx agentic-wallet setup --provider openwallet',
     docsUrl: 'https://docs.openwallet.sh/'
+  },
+  {
+    id: 'crossmint',
+    name: 'Crossmint Wallet',
+    company: 'Crossmint',
+    type: 'managed/api',
+    storage: 'Crossmint infrastructure (custodial or non-custodial)',
+    features: [
+      '50+ chains supported (EVM + Solana + Stellar)',
+      'REST API + TypeScript SDK for programmatic access',
+      'Custodial and non-custodial wallet options',
+      'Built-in transaction and signature management'
+    ],
+    caveats: ['Requires Crossmint account and API key'],
+    setupCommand: 'npx agentic-wallet setup --provider crossmint',
+    docsUrl: 'https://docs.crossmint.com/introduction/platform-overview'
   }
 ];
 
@@ -110,6 +126,21 @@ export async function providers(options: ProvidersOptions = {}): Promise<void> {
   console.log();
   console.log(chalk.gray('   Setup: npx agentic-wallet setup --provider openwallet'));
   console.log(chalk.gray('   Docs:  https://docs.openwallet.sh/'));
+  console.log();
+
+  // Crossmint
+  console.log(chalk.cyan.bold('4. CROSSMINT WALLET (by Crossmint)'));
+  console.log(chalk.gray('   Type: Managed / API-first'));
+  console.log(chalk.gray('   Storage: Crossmint infrastructure (custodial or non-custodial)'));
+  console.log();
+  console.log('   ' + chalk.green('✓') + ' 50+ chains supported (EVM + Solana + Stellar)');
+  console.log('   ' + chalk.green('✓') + ' REST API + TypeScript SDK for programmatic access');
+  console.log('   ' + chalk.green('✓') + ' Custodial and non-custodial wallet options');
+  console.log('   ' + chalk.green('✓') + ' Built-in transaction and signature management');
+  console.log('   ' + chalk.yellow('⚠') + ' Requires Crossmint account and API key');
+  console.log();
+  console.log(chalk.gray('   Setup: npx agentic-wallet setup --provider crossmint'));
+  console.log(chalk.gray('   Docs:  https://docs.crossmint.com/introduction/platform-overview'));
   console.log();
 
   console.log(chalk.gray('═'.repeat(70)));

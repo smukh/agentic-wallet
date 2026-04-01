@@ -66,6 +66,9 @@ export async function balanceCommand(options: BalanceOptions): Promise<void> {
     const openwalletResults = await checkOpenWalletBalances(useJson);
     results.push(...openwalletResults);
 
+    const crossmintResult = await checkCrossmintBalance(useJson);
+    if (crossmintResult) results.push(crossmintResult);
+
     if (useJson) {
       jsonOut(results, fields);
     } else {
@@ -88,7 +91,8 @@ export async function balanceCommand(options: BalanceOptions): Promise<void> {
           { name: 'All providers', value: 'all' },
           { name: 'Coinbase Agentic Wallet (Coinbase)', value: 'coinbase' },
           { name: 'Tempo Wallet (Stripe)', value: 'tempo' },
-          { name: 'OpenWallet Standard (Moonpay)', value: 'openwallet' }
+          { name: 'OpenWallet Standard (Moonpay)', value: 'openwallet' },
+          { name: 'Crossmint Wallet (Crossmint)', value: 'crossmint' }
         ]
       }
     ]);
@@ -119,6 +123,11 @@ export async function balanceCommand(options: BalanceOptions): Promise<void> {
     case 'openwallet': {
       const openwalletResults = await checkOpenWalletBalances(useJson);
       results.push(...openwalletResults);
+      break;
+    }
+    case 'crossmint': {
+      const result = await checkCrossmintBalance(useJson);
+      if (result) results.push(result);
       break;
     }
   }
@@ -315,6 +324,49 @@ async function checkOpenWalletBalances(useJson: boolean): Promise<WalletBalance[
   }
 
   return results;
+}
+
+async function checkCrossmintBalance(useJson: boolean): Promise<WalletBalance | null> {
+  const spinner = useJson ? null : ora('Checking Crossmint wallet...').start();
+
+  // Check if crossmint CLI is installed
+  try {
+    execSync('crossmint --version', { stdio: 'pipe' });
+  } catch {
+    spinner?.info('Crossmint: Not installed');
+    return null;
+  }
+
+  // Check if authenticated
+  try {
+    const whoami = execSync('crossmint whoami 2>/dev/null', {
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+
+    if (!whoami || whoami.includes('not logged in') || whoami.includes('Not logged in')) {
+      spinner?.info('Crossmint: Not authenticated');
+      return null;
+    }
+
+    // Crossmint wallets are managed via API — balance requires API key + wallet ID
+    // For CLI status, we can confirm authentication but balance needs API calls
+    spinner?.succeed('Crossmint: Authenticated (use API or dashboard for balance)');
+
+    return {
+      provider: 'crossmint',
+      name: 'Crossmint Wallet',
+      address: 'See Crossmint dashboard',
+      chain: 'Multi-chain (50+)',
+      chainId: 0,
+      balanceUSDC: 'Use API: GET /api/v1-alpha2/wallets/{id}/balance',
+      balanceETH: 'N/A',
+      status: 'ok'
+    };
+  } catch {
+    spinner?.info('Crossmint: Not authenticated');
+    return null;
+  }
 }
 
 function printBalanceSummary(results: WalletBalance[]): void {
