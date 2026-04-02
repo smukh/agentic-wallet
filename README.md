@@ -55,9 +55,10 @@ npx agentic-wallet recover --from /path/to/backup.json
 
 ## Non-Interactive Mode (For Autonomous Agents)
 
-Agents running unattended can use password files instead of prompts:
+Agents running unattended can create wallets without prompts:
 
 ```bash
+# --- OpenWallet (self-custody) ---
 # Create password file (store securely, chmod 600)
 echo "your-secure-password" > ~/.secrets/wallet-password.txt
 chmod 600 ~/.secrets/wallet-password.txt
@@ -68,6 +69,20 @@ npx agentic-wallet setup \
   --name my-agent \
   --password-file ~/.secrets/wallet-password.txt \
   --non-interactive
+
+# --- Crossmint (custodial, API-key signer) ---
+# Store API key securely (get from https://crossmint.com/console > API Keys)
+echo "your-crossmint-server-api-key" > ~/.secrets/crossmint-key.txt
+chmod 600 ~/.secrets/crossmint-key.txt
+
+# Create custodial wallet without prompts
+npx agentic-wallet setup \
+  --provider crossmint \
+  --name my-agent \
+  --api-key-file ~/.secrets/crossmint-key.txt \
+  --chain-type evm \
+  --wallet-type smart \
+  --non-interactive --json
 
 # Check balance (JSON output for programmatic use)
 npx agentic-wallet balance --all --json
@@ -93,7 +108,13 @@ npx agentic-wallet setup [options]
 Options:
   -p, --provider <provider>  Wallet provider: coinbase, tempo, openwallet, or crossmint
   -c, --chain <chain>        Target chain (default: base) - for MoonPay local wallet
-  -n, --name <name>          Wallet name (default: "default") - for MoonPay local wallet
+  -n, --name <name>          Wallet name (default: "default") - for MoonPay local wallet / Crossmint
+  --password-file <path>     Encryption password file (non-interactive openwallet)
+  --api-key-file <path>      Crossmint API key file (non-interactive crossmint)
+  --chain-type <type>        Crossmint chain type: evm, solana, aptos, sui, stellar (default: evm)
+  --wallet-type <type>       Crossmint wallet type: smart or mpc (default: smart)
+  --non-interactive          Run without prompts
+  --json                     Output as JSON for programmatic use
 ```
 
 **Examples:**
@@ -111,8 +132,12 @@ npx agentic-wallet setup --provider tempo
 # MoonPay local wallet - creates encrypted wallet on your machine
 npx agentic-wallet setup --provider openwallet --name my-agent
 
-# Crossmint - delegates to crossmint CLI
-npx agentic-wallet setup --provider crossmint
+# Crossmint - interactive (browser login)
+npx agentic-wallet setup --provider crossmint --name my-wallet
+
+# Crossmint - non-interactive (API key, no browser)
+npx agentic-wallet setup --provider crossmint --name my-agent \
+  --api-key-file ~/.secrets/crossmint-key.txt --non-interactive --json
 ```
 
 ### `status`
@@ -191,25 +216,46 @@ npx agentic-wallet setup --provider openwallet --name my-agent
 
 ### Crossmint Wallet
 
-Uses the official Crossmint CLI. Supports custodial and non-custodial wallets on 50+ chains.
+Supports custodial and non-custodial wallets on 50+ chains. Wallets are created directly via the Crossmint API.
 
+**Interactive mode** (browser login + prompts):
 ```bash
-# Install Crossmint CLI first
+# Install Crossmint CLI for browser login
 npm install -g @crossmint/cli
 
-# Setup authenticates via browser
-npx agentic-wallet setup --provider crossmint
-
-# After setup, use crossmint CLI for project and key management:
-crossmint projects create
-crossmint keys create
+# Interactive setup — prompts for chain type, wallet type, custody model
+npx agentic-wallet setup --provider crossmint --name my-wallet
 ```
 
-**Features**:
-- 50+ chains supported (EVM + Solana + Stellar)
-- REST API + TypeScript SDK for programmatic wallet creation
-- Custodial and non-custodial wallet options
-- Built-in transaction and signature management
+**Non-interactive mode** (API key, no browser needed — ideal for agents):
+```bash
+# Create custodial EVM smart wallet
+npx agentic-wallet setup \
+  --provider crossmint \
+  --name my-agent \
+  --api-key-file ~/.secrets/crossmint-key.txt \
+  --chain-type evm \
+  --wallet-type smart \
+  --non-interactive --json
+
+# Create Solana wallet
+npx agentic-wallet setup \
+  --provider crossmint \
+  --name sol-agent \
+  --api-key-file ~/.secrets/crossmint-key.txt \
+  --chain-type solana \
+  --non-interactive --json
+```
+
+**Storage location**: `~/.agent-arena/crossmint-wallets/`
+
+**Chain types**: evm, solana, aptos, sui, stellar
+
+**Wallet types**: smart (default), mpc
+
+**Custody models**: Custodial (API-key signer) or Non-custodial (email signer)
+
+**No credentials stored** — API key is read from file, used in memory for the API call, and never saved to disk.
 
 **Docs**: https://docs.crossmint.com/introduction/platform-overview
 
@@ -266,7 +312,7 @@ console.log(status);
 1. **Coinbase**: Keys never leave Coinbase infrastructure
 2. **Tempo**: Keys protected by device passkey
 3. **MoonPay Local Wallet**: Use strong passwords (8+ chars), back up wallet files securely
-4. **Crossmint**: Keys managed by Crossmint infrastructure, API keys required for access
+4. **Crossmint**: Keys managed by Crossmint infrastructure. API key used only in memory during wallet creation — never stored to disk
 
 **Agent Arena has ZERO access to your keys regardless of provider.**
 

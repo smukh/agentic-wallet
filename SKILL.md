@@ -59,7 +59,7 @@ npx agentic-wallet providers --json
 # Interactive (will prompt for password/auth)
 npx agentic-wallet setup --provider <coinbase|tempo|openwallet|crossmint>
 
-# Non-interactive (for autonomous agents — openwallet only)
+# Non-interactive OpenWallet (self-custody)
 npx agentic-wallet setup \
   --provider openwallet \
   --name <wallet-name> \
@@ -67,28 +67,52 @@ npx agentic-wallet setup \
   --password-file <path-to-password-file> \
   --non-interactive \
   --json
+
+# Non-interactive Crossmint (custodial, API-key signer)
+npx agentic-wallet setup \
+  --provider crossmint \
+  --name <wallet-name> \
+  --api-key-file <path-to-api-key-file> \
+  --chain-type <evm|solana|aptos|sui|stellar> \
+  --wallet-type <smart|mpc> \
+  --non-interactive \
+  --json
 ```
 
 **Options:**
 - `--provider <name>` — Required. One of: `coinbase`, `tempo`, `openwallet`, `crossmint`
-- `--chain <name>` — Target chain (default: `base`)
-- `--name <name>` — Wallet name for openwallet (default: `default`)
-- `--password-file <path>` — Path to file with encryption password (min 8 chars, chmod 600)
-- `--non-interactive` — No prompts (requires `--password-file` for openwallet)
+- `--chain <name>` — Target chain for openwallet (default: `base`)
+- `--name <name>` — Wallet name (default: `default`)
+- `--password-file <path>` — Path to file with encryption password (non-interactive openwallet)
+- `--api-key-file <path>` — Path to Crossmint server-side API key (non-interactive crossmint)
+- `--chain-type <type>` — Crossmint chain: `evm`, `solana`, `aptos`, `sui`, `stellar` (default: `evm`)
+- `--wallet-type <type>` — Crossmint wallet: `smart` or `mpc` (default: `smart`)
+- `--non-interactive` — No prompts (requires `--password-file` for openwallet, `--api-key-file` for crossmint)
 - `--json` — JSON output for programmatic use
 
 **Non-interactive setup for autonomous agents:**
 ```bash
-# Create a password file (once, stored securely)
+# --- OpenWallet (self-custody) ---
 echo "your-strong-password" > ~/.secrets/wallet-pw.txt
 chmod 600 ~/.secrets/wallet-pw.txt
 
-# Create wallet without prompts
 npx agentic-wallet setup \
   --provider openwallet \
   --name trading-agent \
   --chain base \
   --password-file ~/.secrets/wallet-pw.txt \
+  --non-interactive --json
+
+# --- Crossmint (custodial, no browser needed) ---
+echo "your-crossmint-server-api-key" > ~/.secrets/crossmint-key.txt
+chmod 600 ~/.secrets/crossmint-key.txt
+
+npx agentic-wallet setup \
+  --provider crossmint \
+  --name my-agent \
+  --api-key-file ~/.secrets/crossmint-key.txt \
+  --chain-type evm \
+  --wallet-type smart \
   --non-interactive --json
 ```
 
@@ -224,14 +248,23 @@ Docs: https://docs.openwallet.sh/
 
 ### Crossmint Wallet
 
-Managed wallet with API-first approach. Supports 50+ chains including EVM, Solana, and Stellar. Offers both custodial and non-custodial options.
+API-first wallet supporting 50+ chains. Both interactive and non-interactive modes.
 
 ```bash
-npx agentic-wallet setup --provider crossmint
+# Interactive (browser login + prompts)
+npx agentic-wallet setup --provider crossmint --name my-wallet
+
+# Non-interactive (API key, no browser — ideal for agents)
+npx agentic-wallet setup --provider crossmint --name my-agent \
+  --api-key-file ~/.secrets/crossmint-key.txt \
+  --chain-type evm --wallet-type smart \
+  --non-interactive --json
 ```
 
-Features: 50+ chains, REST API + TypeScript SDK, custodial & non-custodial, transaction management.
-Prerequisite: Node.js 18+, browser for initial login. Install CLI: `npm install -g @crossmint/cli`
+Features: 50+ chains (evm, solana, aptos, sui, stellar), smart + mpc wallets, custodial & non-custodial.
+Custody: Custodial uses API-key signer (agent-friendly). Non-custodial uses email signer.
+Storage: Wallet records at `~/.agent-arena/crossmint-wallets/`. No credentials stored.
+Prerequisite: Node.js 18+. Interactive mode needs Crossmint CLI (`npm install -g @crossmint/cli`). Non-interactive needs only an API key.
 Docs: https://docs.crossmint.com/introduction/platform-overview
 
 ---
