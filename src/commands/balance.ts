@@ -2,7 +2,7 @@ import chalk from 'chalk';
 import ora from 'ora';
 import inquirer from 'inquirer';
 import { execSync } from 'child_process';
-import { listAllWallets, CHAIN_CONFIG } from '../utils/storage.js';
+import { listAllWallets, listCrossmintWallets, CHAIN_CONFIG } from '../utils/storage.js';
 import { createPublicClient, http, formatUnits } from 'viem';
 import { base, mainnet, arbitrum, optimism, polygon } from 'viem/chains';
 import { isJsonMode, jsonOut, jsonError, ExitCode } from '../utils/output.js';
@@ -327,46 +327,81 @@ async function checkOpenWalletBalances(useJson: boolean): Promise<WalletBalance[
 }
 
 async function checkCrossmintBalance(useJson: boolean): Promise<WalletBalance | null> {
-  const spinner = useJson ? null : ora('Checking Crossmint wallet...').start();
+  const wallets = listCrossmintWallets();
 
-  // Check if crossmint CLI is installed
-  try {
-    execSync('crossmint --version', { stdio: 'pipe' });
-  } catch {
-    spinner?.info('Crossmint: Not installed');
+  if (wallets.length === 0) {
+    if (!useJson) console.log(chalk.gray('  Crossmint: No wallets found'));
     return null;
   }
 
-  // Check if authenticated
-  try {
-    const whoami = execSync('crossmint whoami 2>/dev/null', {
-      encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe']
-    });
+  // Return first wallet's info — for multi-wallet support, this could be expanded
+  // similar to how OpenWallet returns an array
+  const wallet = wallets[0];
+  const spinner = useJson ? null : ora(`Checking Crossmint: ${wallet.name}...`).start();
 
-    if (!whoami || whoami.includes('not logged in') || whoami.includes('Not logged in')) {
-      spinner?.info('Crossmint: Not authenticated');
-      return null;
+  // For EVM custodial wallets with a valid address, try on-chain balance check
+  if (wallet.chainType === 'evm' && wallet.address && wallet.address.startsWith('0x')) {
+    try {
+      const client = createPublicClient({
+        chain: base,
+        transport: http()
+      });
+
+      const ethBalance = await client.getBalance({ address: wallet.address as `0x${string}` });
+      const ethFormatted = formatUnits(ethBalance, 18);
+
+      let usdcFormatted = '0';
+      const usdcAddress = USDC_ADDRESSES[8453]; // Base USDC
+      if (usdcAddress) {
+        try {
+          const usdcBalance = await client.readContract({
+            address: usdcAddress,
+            abi: [{
+              name: 'balanceOf',
+              type: 'function',
+              stateMutability: 'view',
+              inputs: [{ name: 'account', type: 'address' }],
+              outputs: [{ name: '', type: 'uint256' }]
+            }],
+            functionName: 'balanceOf',
+            args: [wallet.address as `0x${string}`]
+          });
+          usdcFormatted = formatUnits(usdcBalance as bigint, 6);
+        } catch {
+          // USDC contract call failed
+        }
+      }
+
+      spinner?.succeed(`Crossmint ${wallet.name}: ${wallet.address.slice(0, 10)}...${wallet.address.slice(-8)}`);
+
+      return {
+        provider: 'crossmint',
+        name: wallet.name,
+        address: wallet.address,
+        chain: `Crossmint ${wallet.chainType}`,
+        chainId: 8453,
+        balanceUSDC: usdcFormatted,
+        balanceETH: ethFormatted,
+        status: 'ok'
+      };
+    } catch (error) {
+      spinner?.warn(`Crossmint ${wallet.name}: On-chain balance check failed, showing wallet info`);
     }
-
-    // Crossmint wallets are managed via API — balance requires API key + wallet ID
-    // For CLI status, we can confirm authentication but balance needs API calls
-    spinner?.succeed('Crossmint: Authenticated (use API or dashboard for balance)');
-
-    return {
-      provider: 'crossmint',
-      name: 'Crossmint Wallet',
-      address: 'See Crossmint dashboard',
-      chain: 'Multi-chain (50+)',
-      chainId: 0,
-      balanceUSDC: 'Use API: GET /api/v1-alpha2/wallets/{id}/balance',
-      balanceETH: 'N/A',
-      status: 'ok'
-    };
-  } catch {
-    spinner?.info('Crossmint: Not authenticated');
-    return null;
   }
+
+  // For non-EVM or if on-chain check failed, return basic info
+  spinner?.succeed(`Crossmint ${wallet.name}: ${wallet.address ? wallet.address.slice(0, 10) + '...' + wallet.address.slice(-8) : 'address pending'}`);
+
+  return {
+    provider: 'crossmint',
+    name: wallet.name,
+    address: wallet.address || 'See Crossmint dashboard',
+    chain: `Crossmint ${wallet.chainType}`,
+    chainId: 0,
+    balanceUSDC: 'Use Crossmint API for balance',
+    balanceETH: 'N/A',
+    status: 'ok'
+  };
 }
 
 function printBalanceSummary(results: WalletBalance[]): void {

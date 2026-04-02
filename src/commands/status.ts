@@ -2,7 +2,7 @@ import chalk from 'chalk';
 import ora from 'ora';
 import inquirer from 'inquirer';
 import { execSync } from 'child_process';
-import { listAllWallets, CHAIN_CONFIG } from '../utils/storage.js';
+import { listAllWallets, listCrossmintWallets, CHAIN_CONFIG } from '../utils/storage.js';
 import { isJsonMode, jsonOut, info } from '../utils/output.js';
 
 interface StatusOptions {
@@ -205,16 +205,31 @@ async function getOpenWalletStatus(useJson: boolean): Promise<ProviderStatus> {
 }
 
 async function getCrossmintStatus(useJson: boolean): Promise<ProviderStatus> {
-  const result: ProviderStatus = { provider: 'crossmint', name: 'Crossmint Wallet', status: 'not_installed' };
+  const result: ProviderStatus = { provider: 'crossmint', name: 'Crossmint Wallet', status: 'not_authenticated' };
 
-  // Check if crossmint CLI is installed
-  try {
-    execSync('crossmint --version', { stdio: 'pipe' });
-  } catch {
+  // Check for locally stored Crossmint wallets first
+  const wallets = listCrossmintWallets();
+
+  if (wallets.length > 0) {
+    result.status = 'authenticated';
+    result.wallets = wallets.map(w => ({
+      name: w.name,
+      address: w.address,
+      chain: `${w.chainType} (${w.walletType})`,
+      chainId: 0,
+      encrypted: false
+    }));
     return result;
   }
 
-  // Check if authenticated
+  // No local wallets — check if Crossmint CLI is installed and authenticated
+  try {
+    execSync('crossmint --version', { stdio: 'pipe' });
+  } catch {
+    result.status = 'not_installed';
+    return result;
+  }
+
   try {
     const whoami = execSync('crossmint whoami 2>/dev/null', {
       encoding: 'utf8',
@@ -223,7 +238,6 @@ async function getCrossmintStatus(useJson: boolean): Promise<ProviderStatus> {
 
     if (whoami && !whoami.includes('not logged in') && !whoami.includes('Not logged in')) {
       result.status = 'authenticated';
-      // Try to extract email or project info from whoami output
       const emailMatch = whoami.match(/[\w.-]+@[\w.-]+\.\w+/);
       if (emailMatch) result.address = emailMatch[0];
     } else {

@@ -12,7 +12,12 @@ import {
   validateWalletName,
   safePasswordEqual,
   CHAIN_CONFIG,
-  type StoredWallet
+  saveCrossmintWallet,
+  crossmintWalletExists,
+  CROSSMINT_CHAIN_TYPES,
+  type StoredWallet,
+  type CrossmintWalletRecord,
+  type CrossmintChainType
 } from '../utils/storage.js';
 import { isJsonMode, jsonOut, jsonError, ExitCode } from '../utils/output.js';
 
@@ -21,6 +26,9 @@ interface SetupOptions {
   chain?: string;
   name?: string;
   passwordFile?: string;
+  apiKeyFile?: string;
+  chainType?: string;
+  walletType?: string;
   nonInteractive?: boolean;
   json?: boolean;
 }
@@ -52,6 +60,11 @@ export async function setupWallet(options: SetupOptions): Promise<void> {
     if (provider === 'openwallet' && !passwordFile) {
       if (useJson) jsonError(ExitCode.INVALID_INPUT, '--password-file is required for openwallet in non-interactive mode');
       console.error(chalk.red('✗ --password-file is required for openwallet in non-interactive mode'));
+      process.exit(ExitCode.INVALID_INPUT);
+    }
+    if (provider === 'crossmint' && !options.apiKeyFile) {
+      if (useJson) jsonError(ExitCode.INVALID_INPUT, '--api-key-file is required for crossmint in non-interactive mode');
+      console.error(chalk.red('✗ --api-key-file is required for crossmint in non-interactive mode'));
       process.exit(ExitCode.INVALID_INPUT);
     }
   }
@@ -112,7 +125,7 @@ export async function setupWallet(options: SetupOptions): Promise<void> {
       await setupOpenWallet(name, chain, useJson, passwordFile, nonInteractive);
       break;
     case 'crossmint':
-      await setupCrossmint(useJson);
+      await setupCrossmint(name, useJson, options.apiKeyFile, options.chainType, options.walletType, nonInteractive);
       break;
   }
 }
@@ -454,17 +467,231 @@ async function setupOpenWallet(name: string, chain: string, useJson: boolean, pa
   }
 }
 
-async function setupCrossmint(useJson: boolean): Promise<void> {
+async function setupCrossmint(
+  name: string,
+  useJson: boolean,
+  apiKeyFile?: string,
+  chainType?: string,
+  walletType?: string,
+  nonInteractive?: boolean
+): Promise<void> {
   if (!useJson) {
     console.log(chalk.bold('Crossmint Wallet Setup'));
     console.log(chalk.gray('─'.repeat(50)));
     console.log();
-    console.log('This will use the Crossmint CLI to authenticate and create your wallet.');
     console.log('Crossmint supports custodial and non-custodial wallets on 50+ chains.');
     console.log();
   }
 
-  // Check if crossmint CLI is available
+  // Validate wallet name
+  try {
+    validateWalletName(name);
+  } catch (err: any) {
+    if (useJson) jsonError(ExitCode.INVALID_INPUT, err.message);
+    console.error(chalk.red(`✗ ${err.message}`));
+    process.exit(ExitCode.INVALID_INPUT);
+  }
+
+  // Check if this wallet name already exists locally
+  if (crossmintWalletExists(name)) {
+    if (useJson) jsonError(ExitCode.ALREADY_EXISTS, `Crossmint wallet "${name}" already exists locally`);
+    console.error(chalk.red(`✗ Crossmint wallet "${name}" already exists locally`));
+    process.exit(ExitCode.ALREADY_EXISTS);
+  }
+
+  // --- Determine mode: non-interactive (API key) vs interactive (browser login) ---
+
+  if (nonInteractive || apiKeyFile) {
+    // ═══════════════════════════════════════════════════
+    // NON-INTERACTIVE MODE — API key from file, no browser
+    // Creates a custodial wallet via Crossmint REST API
+    // ═══════════════════════════════════════════════════
+    await setupCrossmintNonInteractive(name, useJson, apiKeyFile, chainType, walletType);
+  } else {
+    // ═══════════════════════════════════════════════════
+    // INTERACTIVE MODE — browser login + prompted wallet creation
+    // Supports both custodial and non-custodial
+    // ═══════════════════════════════════════════════════
+    await setupCrossmintInteractive(name, useJson, chainType, walletType);
+  }
+}
+
+/**
+ * Non-interactive Crossmint setup.
+ * Reads API key from file, creates a custodial wallet via REST API.
+ * No browser or user interaction required — ideal for autonomous agents.
+ */
+async function setupCrossmintNonInteractive(
+  name: string,
+  useJson: boolean,
+  apiKeyFile?: string,
+  chainType?: string,
+  walletType?: string
+): Promise<void> {
+  // Read API key from file
+  if (!apiKeyFile) {
+    if (useJson) jsonError(ExitCode.INVALID_INPUT, '--api-key-file is required for non-interactive Crossmint setup');
+    console.error(chalk.red('✗ --api-key-file is required for non-interactive Crossmint setup'));
+    process.exit(ExitCode.INVALID_INPUT);
+  }
+
+  if (!existsSync(apiKeyFile)) {
+    if (useJson) jsonError(ExitCode.INVALID_INPUT, `API key file not found: ${apiKeyFile}`);
+    console.error(chalk.red(`✗ API key file not found: ${apiKeyFile}`));
+    process.exit(ExitCode.INVALID_INPUT);
+  }
+
+  const apiKey = readFileSync(apiKeyFile, 'utf8').trim();
+  if (!apiKey || apiKey.length < 10) {
+    if (useJson) jsonError(ExitCode.INVALID_INPUT, 'API key file appears to be empty or invalid');
+    console.error(chalk.red('✗ API key file appears to be empty or invalid'));
+    process.exit(ExitCode.INVALID_INPUT);
+  }
+
+  // Default to EVM smart wallet if not specified
+  const selectedChainType = chainType || 'evm';
+  const selectedWalletType = walletType || 'smart';
+
+  // Validate chain type
+  if (!CROSSMINT_CHAIN_TYPES.includes(selectedChainType as any)) {
+    if (useJson) jsonError(ExitCode.INVALID_INPUT, `Invalid chain type: ${selectedChainType}`, { validChainTypes: [...CROSSMINT_CHAIN_TYPES] });
+    console.error(chalk.red(`✗ Invalid chain type: ${selectedChainType}`));
+    console.log(chalk.gray(`Valid chain types: ${CROSSMINT_CHAIN_TYPES.join(', ')}`));
+    process.exit(ExitCode.INVALID_INPUT);
+  }
+
+  const spinner = useJson ? null : ora('Creating Crossmint wallet via API...').start();
+
+  try {
+    // Build request body — custodial wallet with API key as admin signer
+    const requestBody: Record<string, any> = {
+      chainType: selectedChainType,
+      type: selectedWalletType,
+      config: {
+        adminSigner: {
+          type: 'api-key'
+        }
+      }
+    };
+
+    // Use production API
+    const apiUrl = 'https://www.crossmint.com/api/2025-06-09/wallets';
+
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'X-API-KEY': apiKey,
+        'Content-Type': 'application/json',
+        'x-idempotency-key': `agentic-wallet-${name}-${Date.now()}`
+      },
+      body: JSON.stringify(requestBody)
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      let errorMsg = `Crossmint API error (${response.status})`;
+      try {
+        const parsed = JSON.parse(errorBody);
+        errorMsg = parsed.message || parsed.error || errorMsg;
+      } catch {
+        errorMsg = errorBody || errorMsg;
+      }
+      spinner?.fail(chalk.red('Failed to create Crossmint wallet'));
+      if (useJson) jsonError(ExitCode.GENERAL_ERROR, errorMsg, { statusCode: response.status });
+      console.error(chalk.red(`✗ ${errorMsg}`));
+      process.exit(ExitCode.GENERAL_ERROR);
+    }
+
+    const walletData = await response.json() as Record<string, any>;
+
+    // Normalize createdAt — API may return Unix timestamp (number) or ISO string
+    let createdAt: string;
+    if (typeof walletData.createdAt === 'number') {
+      createdAt = new Date(walletData.createdAt).toISOString();
+    } else {
+      createdAt = walletData.createdAt || new Date().toISOString();
+    }
+
+    // Save wallet record locally
+    const walletRecord: CrossmintWalletRecord = {
+      id: walletData.address || uuidv4(),
+      name,
+      address: walletData.address,
+      chainType: walletData.chainType || selectedChainType,
+      walletType: walletData.type || selectedWalletType,
+      custodyModel: 'custodial',
+      createdAt,
+      crossmintLocator: walletData.owner
+    };
+
+    const saved = saveCrossmintWallet(walletRecord);
+    if (!saved) {
+      spinner?.fail(chalk.red('Wallet already exists locally (race condition)'));
+      if (useJson) jsonError(ExitCode.ALREADY_EXISTS, `Wallet "${name}" already exists locally`);
+      process.exit(ExitCode.ALREADY_EXISTS);
+    }
+
+    spinner?.succeed(chalk.green('Crossmint wallet created successfully!'));
+
+    if (useJson) {
+      jsonOut({
+        ok: true,
+        provider: 'crossmint',
+        name,
+        address: walletRecord.address,
+        chainType: walletRecord.chainType,
+        walletType: walletRecord.walletType,
+        custodyModel: walletRecord.custodyModel,
+        createdAt: walletRecord.createdAt,
+        storagePath: `~/.agent-arena/crossmint-wallets/${name}.json`
+      });
+    } else {
+      console.log();
+      console.log(chalk.bold('Wallet Details:'));
+      console.log(chalk.gray('─'.repeat(50)));
+      console.log(`  ${chalk.cyan('Name:')}          ${name}`);
+      console.log(`  ${chalk.cyan('Address:')}       ${walletRecord.address}`);
+      console.log(`  ${chalk.cyan('Chain Type:')}    ${walletRecord.chainType}`);
+      console.log(`  ${chalk.cyan('Wallet Type:')}   ${walletRecord.walletType}`);
+      console.log(`  ${chalk.cyan('Custody:')}       ${chalk.green('Custodial (API-key signer)')}`);
+      console.log(chalk.gray('─'.repeat(50)));
+      console.log();
+      console.log(chalk.bold('Security:'));
+      console.log(chalk.white('  ✓ Keys managed by Crossmint infrastructure'));
+      console.log(chalk.white('  ✓ API key controls wallet operations'));
+      console.log(chalk.white('  ✓ Wallet record stored at: ~/.agent-arena/crossmint-wallets/' + name + '.json'));
+      console.log(chalk.white('  ✓ Agent Arena has ZERO access to your keys'));
+      console.log();
+      console.log(chalk.bold('Next steps:'));
+      console.log('  1. Fund wallet: npx agentic-wallet fund --provider crossmint');
+      console.log('  2. Check balance: npx agentic-wallet balance --provider crossmint');
+      console.log();
+      console.log(chalk.gray('Docs: https://docs.crossmint.com/introduction/platform-overview'));
+    }
+
+  } catch (error: any) {
+    spinner?.fail(chalk.red('Failed to create Crossmint wallet'));
+    const errorMsg = error.cause?.code === 'ENOTFOUND'
+      ? 'Network error: cannot reach Crossmint API'
+      : error.message || String(error);
+    if (useJson) jsonError(ExitCode.GENERAL_ERROR, errorMsg);
+    console.error(chalk.red(`✗ ${errorMsg}`));
+    process.exit(ExitCode.GENERAL_ERROR);
+  }
+}
+
+/**
+ * Interactive Crossmint setup.
+ * Authenticates via browser (Crossmint CLI), then prompts for wallet config
+ * and creates the wallet via API. Supports custodial + non-custodial.
+ */
+async function setupCrossmintInteractive(
+  name: string,
+  useJson: boolean,
+  chainType?: string,
+  walletType?: string
+): Promise<void> {
+  // Step 1: Check if Crossmint CLI is installed (needed for login)
   const spinner = useJson ? null : ora('Checking for Crossmint CLI...').start();
 
   let crossmintInstalled = false;
@@ -473,7 +700,7 @@ async function setupCrossmint(useJson: boolean): Promise<void> {
     crossmintInstalled = true;
     spinner?.succeed('Crossmint CLI available');
   } catch {
-    spinner?.info('Crossmint CLI not found. Installing...');
+    spinner?.info('Crossmint CLI not found');
   }
 
   if (!crossmintInstalled) {
@@ -483,25 +710,27 @@ async function setupCrossmint(useJson: boolean): Promise<void> {
       });
     }
     console.log();
-    console.log(chalk.yellow('Run one of the following commands to install:'));
+    console.log(chalk.yellow('The Crossmint CLI is needed for interactive login.'));
+    console.log(chalk.yellow('Install it with one of these commands:'));
     console.log();
     console.log(chalk.white('  npm install -g @crossmint/cli'));
     console.log(chalk.white('  brew tap crossmint/tap && brew install crossmint'));
     console.log();
-    console.log(chalk.gray('After installation, run this setup command again.'));
+    console.log(chalk.gray('Alternatively, use non-interactive mode with an API key:'));
+    console.log(chalk.white('  npx agentic-wallet setup --provider crossmint --api-key-file <path> --non-interactive'));
     console.log();
     process.exit(ExitCode.PROVIDER_NOT_INSTALLED);
     return;
   }
 
-  // Check if already logged in
+  // Step 2: Check if already logged in
   let alreadyLoggedIn = false;
   try {
     const whoami = execSync('crossmint whoami 2>/dev/null', {
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe']
     });
-    if (whoami && !whoami.includes('not logged in')) {
+    if (whoami && !whoami.includes('not logged in') && !whoami.includes('Not logged in')) {
       alreadyLoggedIn = true;
       if (!useJson) {
         console.log();
@@ -513,6 +742,7 @@ async function setupCrossmint(useJson: boolean): Promise<void> {
     // Not logged in
   }
 
+  // Step 3: Login if needed
   if (!alreadyLoggedIn) {
     if (!useJson) {
       console.log();
@@ -536,54 +766,232 @@ async function setupCrossmint(useJson: boolean): Promise<void> {
       return;
     }
 
+    // Wait for login to complete
     try {
-      const child = spawn('crossmint', ['login', '--env', 'production'], {
-        stdio: 'inherit',
-        shell: true
-      });
-
-      child.on('close', (code) => {
-        if (code === 0) {
-          if (useJson) {
-            jsonOut({ ok: true, provider: 'crossmint', message: 'Crossmint wallet setup complete' });
-          } else {
-            console.log();
-            console.log(chalk.green('✓ Crossmint authentication complete!'));
-            console.log();
-            console.log(chalk.bold('Next steps:'));
-            console.log('  1. Create a project: crossmint projects create');
-            console.log('  2. Create API keys: crossmint keys create');
-            console.log('  3. Create a wallet via API or SDK');
-            console.log();
-            console.log(chalk.bold('Quick wallet creation via API:'));
-            console.log(chalk.gray('  curl -X POST https://www.crossmint.com/api/v1-alpha2/wallets \\'));
-            console.log(chalk.gray('    -H "X-API-KEY: <your-api-key>" \\'));
-            console.log(chalk.gray('    -H "Content-Type: application/json" \\'));
-            console.log(chalk.gray('    -d \'{"type": "evm-smart-wallet"}\''));
-            console.log();
-            console.log(chalk.gray('Docs: https://docs.crossmint.com/introduction/platform-overview'));
-          }
-        } else {
-          if (useJson) jsonError(ExitCode.GENERAL_ERROR, 'Crossmint authentication failed');
-          else console.error(chalk.red('✗ Crossmint authentication failed'));
-        }
+      await new Promise<void>((resolve, reject) => {
+        const child = spawn('crossmint', ['login', '--env', 'production'], {
+          stdio: 'inherit',
+          shell: true
+        });
+        child.on('close', (code) => {
+          if (code === 0) resolve();
+          else reject(new Error('Crossmint authentication failed'));
+        });
+        child.on('error', reject);
       });
     } catch (error) {
-      if (useJson) jsonError(ExitCode.GENERAL_ERROR, 'Failed to start Crossmint authentication');
-      console.error(chalk.red('Failed to start Crossmint authentication'));
-      console.error(error);
+      if (useJson) jsonError(ExitCode.GENERAL_ERROR, 'Crossmint authentication failed');
+      console.error(chalk.red('✗ Crossmint authentication failed'));
+      process.exit(ExitCode.GENERAL_ERROR);
     }
-  } else {
+
+    console.log();
+    console.log(chalk.green('✓ Crossmint authentication complete!'));
+  }
+
+  // Step 4: Prompt for wallet configuration
+  console.log();
+
+  let selectedChainType = chainType;
+  let selectedWalletType = walletType;
+  let custodyModel: 'custodial' | 'non-custodial' = 'custodial';
+
+  if (!selectedChainType) {
+    const { chain } = await inquirer.prompt([
+      {
+        type: 'list',
+        name: 'chain',
+        message: 'Select chain type:',
+        choices: [
+          { name: 'EVM (Ethereum, Base, Polygon, Arbitrum, Optimism, etc.)', value: 'evm' },
+          { name: 'Solana', value: 'solana' },
+          { name: 'Aptos', value: 'aptos' },
+          { name: 'Sui', value: 'sui' },
+          { name: 'Stellar', value: 'stellar' }
+        ]
+      }
+    ]);
+    selectedChainType = chain;
+  }
+
+  if (!selectedWalletType) {
+    const { wtype } = await inquirer.prompt([
+      {
+        type: 'list',
+        name: 'wtype',
+        message: 'Select wallet type:',
+        choices: [
+          { name: 'Smart Wallet (recommended — default for most chains)', value: 'smart' },
+          { name: 'MPC Wallet (multi-party computation)', value: 'mpc' }
+        ]
+      }
+    ]);
+    selectedWalletType = wtype;
+  }
+
+  const { custody } = await inquirer.prompt([
+    {
+      type: 'list',
+      name: 'custody',
+      message: 'Select custody model:',
+      choices: [
+        { name: 'Custodial (API-key signer — Crossmint manages keys, ideal for agents)', value: 'custodial' },
+        { name: 'Non-custodial (email signer — you retain key control)', value: 'non-custodial' }
+      ]
+    }
+  ]);
+  custodyModel = custody;
+
+  // Step 5: Get API key
+  console.log();
+  console.log(chalk.cyan('An API key is needed to create the wallet.'));
+  console.log(chalk.gray('Get one from https://www.crossmint.com/console → API Keys'));
+  console.log();
+
+  const { apiKey } = await inquirer.prompt([
+    {
+      type: 'password',
+      name: 'apiKey',
+      message: 'Enter your Crossmint API key (server-side key with wallets.create scope):',
+      mask: '*',
+      validate: (input: string) => input.length >= 10 || 'API key appears too short'
+    }
+  ]);
+
+  // Step 6: Build request and create wallet
+  const createSpinner = useJson ? null : ora('Creating Crossmint wallet...').start();
+
+  try {
+    const requestBody: Record<string, any> = {
+      chainType: selectedChainType,
+      type: selectedWalletType,
+      config: {
+        adminSigner: custodyModel === 'custodial'
+          ? { type: 'api-key' }
+          : { type: 'email', email: '' }  // Will be set below
+      }
+    };
+
+    // For non-custodial, prompt for email
+    if (custodyModel === 'non-custodial') {
+      const { email } = await inquirer.prompt([
+        {
+          type: 'input',
+          name: 'email',
+          message: 'Enter the email for wallet ownership:',
+          validate: (input: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input) || 'Please enter a valid email'
+        }
+      ]);
+      requestBody.config.adminSigner.email = email;
+      requestBody.owner = `email:${email}`;
+    }
+
+    const apiUrl = 'https://www.crossmint.com/api/2025-06-09/wallets';
+
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'X-API-KEY': apiKey,
+        'Content-Type': 'application/json',
+        'x-idempotency-key': `agentic-wallet-${name}-${Date.now()}`
+      },
+      body: JSON.stringify(requestBody)
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      let errorMsg = `Crossmint API error (${response.status})`;
+      try {
+        const parsed = JSON.parse(errorBody);
+        errorMsg = parsed.message || parsed.error || errorMsg;
+      } catch {
+        errorMsg = errorBody || errorMsg;
+      }
+      createSpinner?.fail(chalk.red('Failed to create wallet'));
+      if (useJson) jsonError(ExitCode.GENERAL_ERROR, errorMsg, { statusCode: response.status });
+      console.error(chalk.red(`✗ ${errorMsg}`));
+      process.exit(ExitCode.GENERAL_ERROR);
+    }
+
+    const walletData = await response.json() as Record<string, any>;
+
+    // Normalize createdAt — API may return Unix timestamp (number) or ISO string
+    let createdAtStr: string;
+    if (typeof walletData.createdAt === 'number') {
+      createdAtStr = new Date(walletData.createdAt).toISOString();
+    } else {
+      createdAtStr = walletData.createdAt || new Date().toISOString();
+    }
+
+    // Save wallet record locally
+    const walletRecord: CrossmintWalletRecord = {
+      id: walletData.address || uuidv4(),
+      name,
+      address: walletData.address,
+      chainType: walletData.chainType || selectedChainType || 'evm',
+      walletType: walletData.type || selectedWalletType || 'smart',
+      custodyModel,
+      createdAt: createdAtStr,
+      crossmintLocator: walletData.owner
+    };
+
+    const saved = saveCrossmintWallet(walletRecord);
+    if (!saved) {
+      createSpinner?.fail(chalk.red('Wallet already exists locally (race condition)'));
+      if (useJson) jsonError(ExitCode.ALREADY_EXISTS, `Wallet "${name}" already exists locally`);
+      process.exit(ExitCode.ALREADY_EXISTS);
+    }
+
+    createSpinner?.succeed(chalk.green('Crossmint wallet created successfully!'));
+
     if (useJson) {
-      jsonOut({ ok: true, provider: 'crossmint', message: 'Already authenticated with Crossmint' });
+      jsonOut({
+        ok: true,
+        provider: 'crossmint',
+        name,
+        address: walletRecord.address,
+        chainType: walletRecord.chainType,
+        walletType: walletRecord.walletType,
+        custodyModel: walletRecord.custodyModel,
+        createdAt: walletRecord.createdAt,
+        storagePath: `~/.agent-arena/crossmint-wallets/${name}.json`
+      });
     } else {
       console.log();
+      console.log(chalk.bold('Wallet Details:'));
+      console.log(chalk.gray('─'.repeat(50)));
+      console.log(`  ${chalk.cyan('Name:')}          ${name}`);
+      console.log(`  ${chalk.cyan('Address:')}       ${walletRecord.address}`);
+      console.log(`  ${chalk.cyan('Chain Type:')}    ${walletRecord.chainType}`);
+      console.log(`  ${chalk.cyan('Wallet Type:')}   ${walletRecord.walletType}`);
+      console.log(`  ${chalk.cyan('Custody:')}       ${custodyModel === 'custodial' ? chalk.green('Custodial (API-key signer)') : chalk.yellow('Non-custodial (email signer)')}`);
+      console.log(chalk.gray('─'.repeat(50)));
+      console.log();
+      console.log(chalk.bold('Security:'));
+      if (custodyModel === 'custodial') {
+        console.log(chalk.white('  ✓ Keys managed by Crossmint infrastructure'));
+        console.log(chalk.white('  ✓ API key controls wallet operations'));
+      } else {
+        console.log(chalk.white('  ✓ Keys controlled by your email signer'));
+        console.log(chalk.white('  ✓ Crossmint cannot access your funds without your approval'));
+      }
+      console.log(chalk.white('  ✓ Wallet record stored at: ~/.agent-arena/crossmint-wallets/' + name + '.json'));
+      console.log(chalk.white('  ✓ Agent Arena has ZERO access to your keys'));
+      console.log();
       console.log(chalk.bold('Next steps:'));
-      console.log('  1. Create a project: crossmint projects create');
-      console.log('  2. Create API keys: crossmint keys create');
-      console.log('  3. Create a wallet via API or SDK');
+      console.log('  1. Fund wallet: npx agentic-wallet fund --provider crossmint');
+      console.log('  2. Check balance: npx agentic-wallet balance --provider crossmint');
       console.log();
       console.log(chalk.gray('Docs: https://docs.crossmint.com/introduction/platform-overview'));
     }
+
+  } catch (error: any) {
+    createSpinner?.fail(chalk.red('Failed to create wallet'));
+    const errorMsg = error.cause?.code === 'ENOTFOUND'
+      ? 'Network error: cannot reach Crossmint API'
+      : error.message || String(error);
+    if (useJson) jsonError(ExitCode.GENERAL_ERROR, errorMsg);
+    console.error(chalk.red(`✗ ${errorMsg}`));
+    process.exit(ExitCode.GENERAL_ERROR);
   }
 }

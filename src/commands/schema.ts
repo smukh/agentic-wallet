@@ -12,7 +12,10 @@ const SCHEMAS: Record<string, object> = {
       provider: { type: 'string', required: true, enum: ['coinbase', 'tempo', 'openwallet', 'crossmint'], description: 'Wallet provider' },
       chain: { type: 'string', required: false, default: 'base', enum: ['base', 'ethereum', 'arbitrum', 'optimism', 'polygon'], description: 'Target chain' },
       name: { type: 'string', required: false, default: 'default', description: 'Wallet name (openwallet only)' },
-      'password-file': { type: 'string', required: false, description: 'Path to password file (non-interactive mode)' },
+      'password-file': { type: 'string', required: false, description: 'Path to password file (non-interactive openwallet)' },
+      'api-key-file': { type: 'string', required: false, description: 'Path to Crossmint API key file (non-interactive crossmint)' },
+      'chain-type': { type: 'string', required: false, default: 'evm', enum: ['evm', 'solana', 'aptos', 'sui', 'stellar'], description: 'Crossmint chain type' },
+      'wallet-type': { type: 'string', required: false, default: 'smart', enum: ['smart', 'mpc'], description: 'Crossmint wallet type' },
       'non-interactive': { type: 'boolean', required: false, description: 'Run without prompts' },
       json: { type: 'boolean', required: false, description: 'Output as JSON' }
     },
@@ -60,7 +63,7 @@ const SCHEMAS: Record<string, object> = {
     command: 'status',
     description: 'Check wallet authentication status',
     options: {
-      provider: { type: 'string', required: false, enum: ['coinbase', 'tempo', 'openwallet', 'all'], description: 'Provider to check (default: all)' },
+      provider: { type: 'string', required: false, enum: ['coinbase', 'tempo', 'openwallet', 'crossmint', 'all'], description: 'Provider to check (default: all)' },
       json: { type: 'boolean', required: false, description: 'Output as JSON' }
     },
     output: {
@@ -178,7 +181,7 @@ export async function schemaCommand(command?: string): Promise<void> {
   } else {
     const all = {
       cli: 'agent-wallet',
-      version: '1.0.3',
+      version: '1.0.4',
       commands: SCHEMAS
     };
     process.stdout.write(JSON.stringify(all, null, 2) + '\n');

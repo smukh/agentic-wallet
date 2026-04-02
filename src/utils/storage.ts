@@ -17,6 +17,17 @@ export interface StoredWallet {
   authTag?: string;
 }
 
+export interface CrossmintWalletRecord {
+  id: string;
+  name: string;
+  address: string;
+  chainType: string;
+  walletType: string;
+  custodyModel: 'custodial' | 'non-custodial';
+  createdAt: string;
+  crossmintLocator?: string;
+}
+
 const WALLET_DIR = join(homedir(), '.agent-arena', 'wallets');
 
 // Scrypt parameters — explicit, not relying on Node defaults
@@ -183,6 +194,79 @@ export function deleteWalletFile(name: string): boolean {
   unlinkSync(path);
   return true;
 }
+
+// --- Crossmint wallet storage ---
+
+const CROSSMINT_DIR = join(homedir(), '.agent-arena', 'crossmint-wallets');
+
+export function ensureCrossmintDir(): void {
+  if (!existsSync(CROSSMINT_DIR)) {
+    mkdirSync(CROSSMINT_DIR, { recursive: true, mode: 0o700 });
+  }
+}
+
+export function getCrossmintWalletPath(name: string): string {
+  validateWalletName(name);
+  return join(CROSSMINT_DIR, `${name}.json`);
+}
+
+export function saveCrossmintWallet(wallet: CrossmintWalletRecord): boolean {
+  ensureCrossmintDir();
+  const path = getCrossmintWalletPath(wallet.name);
+  try {
+    const fd = openSync(path, constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY, 0o600);
+    const data = JSON.stringify(wallet, null, 2);
+    writeFileSync(fd, data, 'utf8');
+    closeSync(fd);
+    return true;
+  } catch (err: any) {
+    if (err.code === 'EEXIST') return false;
+    throw err;
+  }
+}
+
+export function loadCrossmintWallet(name: string): CrossmintWalletRecord | null {
+  const path = getCrossmintWalletPath(name);
+  if (!existsSync(path)) return null;
+  const data = readFileSync(path, 'utf8');
+  return JSON.parse(data) as CrossmintWalletRecord;
+}
+
+export function listCrossmintWallets(): CrossmintWalletRecord[] {
+  ensureCrossmintDir();
+  const files = readdirSync(CROSSMINT_DIR).filter(f => f.endsWith('.json'));
+  const wallets: CrossmintWalletRecord[] = [];
+  for (const f of files) {
+    try {
+      const data = readFileSync(join(CROSSMINT_DIR, f), 'utf8');
+      const parsed = JSON.parse(data);
+      if (parsed.id && parsed.name && parsed.address && parsed.chainType) {
+        wallets.push(parsed as CrossmintWalletRecord);
+      }
+    } catch {
+      // Skip corrupted files
+    }
+  }
+  return wallets;
+}
+
+export function crossmintWalletExists(name: string): boolean {
+  return existsSync(getCrossmintWalletPath(name));
+}
+
+// --- Crossmint supported chain types ---
+
+export const CROSSMINT_CHAIN_TYPES = Object.freeze([
+  'evm',
+  'solana',
+  'aptos',
+  'sui',
+  'stellar'
+] as const);
+
+export type CrossmintChainType = typeof CROSSMINT_CHAIN_TYPES[number];
+
+// --- Standard chain config ---
 
 export const CHAIN_CONFIG: Readonly<Record<string, { chainId: number; name: string; rpcUrl: string }>> = Object.freeze({
   base: Object.freeze({

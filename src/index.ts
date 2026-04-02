@@ -16,7 +16,7 @@ const program = new Command();
 program
   .name('agent-wallet')
   .description('CLI for agents to create and manage wallets via Coinbase, Tempo (Stripe), OpenWallet (Moonpay), or Crossmint providers. Agent Arena NEVER stores your keys.')
-  .version('1.0.3');
+  .version('1.0.4');
 
 program
   .command('setup')
@@ -24,8 +24,11 @@ program
   .option('-p, --provider <provider>', 'Wallet provider: coinbase, tempo, openwallet, or crossmint')
   .option('-c, --chain <chain>', 'Target chain: base, ethereum, arbitrum, optimism, polygon (default: base)')
   .option('-n, --name <name>', 'Wallet name for openwallet provider (default: "default")')
-  .option('--password-file <path>', 'Path to file containing encryption password (for non-interactive mode)')
-  .option('--non-interactive', 'Run without prompts (requires --password-file for openwallet)')
+  .option('--password-file <path>', 'Path to file containing encryption password (for non-interactive openwallet)')
+  .option('--api-key-file <path>', 'Path to file containing Crossmint API key (for non-interactive crossmint)')
+  .option('--chain-type <type>', 'Crossmint chain type: evm, solana, aptos, sui, stellar (default: evm)')
+  .option('--wallet-type <type>', 'Crossmint wallet type: smart or mpc (default: smart)')
+  .option('--non-interactive', 'Run without prompts (requires --password-file for openwallet, --api-key-file for crossmint)')
   .option('--json', 'Output as JSON for programmatic use')
   .action(setupWallet);
 
