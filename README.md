@@ -1,6 +1,6 @@
 # agentic-wallet
 
-CLI for AI agents to create and manage wallets via **Coinbase**, **Tempo**, **OpenWallet**, or **Crossmint** providers.
+CLI for AI agents to create, manage, and **spend from** wallets via **Coinbase**, **Tempo**, **OpenWallet**, **Crossmint**, or **MoonAgents Card** (virtual Mastercard for agent spending).
 
 ## Security First
 
@@ -86,6 +86,45 @@ npx agentic-wallet setup \
 
 # Check balance (JSON output for programmatic use)
 npx agentic-wallet balance --all --json
+```
+
+## MoonAgents Card (NEW)
+
+Spend stablecoins at any online Mastercard merchant — powered by MoonPay + Monavate. Funds stay in your self-custodial wallet until the moment of purchase.
+
+**Available in:** UK, LATAM (US/EU planned)
+
+**Prerequisite:** `npm install -g @moonpay/cli && mp login`
+
+```bash
+# 1. Complete KYC identity verification
+npx agentic-wallet card onboarding-start \
+  --first-name "Jane" --last-name "Smith" \
+  --country-of-residence GBR --country-of-nationality GBR \
+  --phone-country-code +44 --phone-number 7700900000 \
+  --date-of-birth 1990-01-01
+
+# 2. Check KYC status
+npx agentic-wallet card onboarding-check
+
+# 3. Finish KYC — submit address and accept terms
+npx agentic-wallet card onboarding-finish \
+  --address-line1 "221B Baker Street" --city London --zip "NW1 6XE" \
+  --accept-terms
+
+# 4. Issue your virtual Mastercard
+npx agentic-wallet card create
+
+# 5. Link a wallet with a spending cap
+npx agentic-wallet card link-wallet --wallet my-wallet --amount 5000
+
+# 6. View transactions
+npx agentic-wallet card transactions
+
+# Safety controls
+npx agentic-wallet card freeze          # Pause all transactions
+npx agentic-wallet card unfreeze        # Resume transactions
+npx agentic-wallet card unlink-wallet --wallet my-wallet  # Revoke access
 ```
 
 ## Commands
@@ -259,6 +298,32 @@ npx agentic-wallet setup \
 
 **Docs**: https://docs.crossmint.com/introduction/platform-overview
 
+### MoonAgents Card (MoonPay + Monavate)
+
+A virtual Mastercard debit card that lets AI agents spend stablecoins directly from an onchain wallet at any online Mastercard merchant globally.
+
+```bash
+# Requires MoonPay CLI
+npm install -g @moonpay/cli
+mp login
+
+# Full card lifecycle
+npx agentic-wallet card onboarding-start  # KYC
+npx agentic-wallet card create            # Issue card
+npx agentic-wallet card link-wallet ...   # Link wallet + spending cap
+npx agentic-wallet card transactions      # View spending
+npx agentic-wallet card freeze            # Emergency stop
+npx agentic-wallet card unlink-wallet ... # Revoke permanently
+```
+
+**Availability**: UK, LATAM (US, EU planned)
+
+**How it works**: Links a self-custodial wallet to a Mastercard through Monavate. Funds stay onchain until purchase. Smart contract approval with revocable spending caps. Declined transactions leave funds untouched.
+
+**Issued by**: Monavate Ltd (regulated Mastercard principal member)
+
+**Docs**: https://www.moonpay.com/agents/card
+
 ## Supported Chains (MoonPay Local Wallet)
 
 | Chain | Chain ID | Default |
@@ -313,6 +378,7 @@ console.log(status);
 2. **Tempo**: Keys protected by device passkey
 3. **MoonPay Local Wallet**: Use strong passwords (8+ chars), back up wallet files securely
 4. **Crossmint**: Keys managed by Crossmint infrastructure. API key used only in memory during wallet creation — never stored to disk
+5. **MoonAgents Card**: Funds stay in your wallet until purchase. Set spending caps, freeze instantly, revoke anytime. KYC required for card issuance
 
 **Agent Arena has ZERO access to your keys regardless of provider.**
 

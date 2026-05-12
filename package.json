@@ -1,7 +1,7 @@
 {
   "name": "agentic-wallet",
-  "version": "1.0.5",
-  "description": "CLI for agents to create and manage MoonPay local wallets for ERC-8004 and x402 payments",
+  "version": "1.1.0",
+  "description": "CLI for agents to create, manage, and spend from wallets — now with MoonAgents Card (virtual Mastercard for AI agents)",
   "main": "dist/index.js",
   "bin": {
     "agent-wallet": "dist/index.js"
@@ -21,7 +21,12 @@
     "crypto",
     "ethereum",
     "base",
-    "ai-agent"
+    "ai-agent",
+    "moonpay",
+    "moonagents",
+    "debit-card",
+    "mastercard",
+    "stablecoin"
   ],
   "author": "Agent Arena",
   "license": "AGPL-3.0-only",

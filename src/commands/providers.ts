@@ -69,6 +69,27 @@ const PROVIDERS_DATA = [
     caveats: ['Requires Crossmint account and API key'],
     setupCommand: 'npx agentic-wallet setup --provider crossmint',
     docsUrl: 'https://docs.crossmint.com/introduction/platform-overview'
+  },
+  {
+    id: 'moonpay-card',
+    name: 'MoonAgents Card',
+    company: 'MoonPay + Monavate',
+    type: 'spending/debit-card',
+    storage: 'Self-custodial wallet — funds stay onchain until purchase',
+    features: [
+      'Virtual Mastercard debit card for AI agents',
+      'Spend stablecoins at any online Mastercard merchant globally',
+      'Funds stay in wallet until moment of purchase (no pre-loading)',
+      'Programmable spending caps and instant freeze/revoke',
+      'Full transaction logging for agent audit trails'
+    ],
+    caveats: [
+      'Requires KYC identity verification (via Monavate)',
+      'Currently available in UK and LATAM (US/EU planned)',
+      'Requires MoonPay CLI (@moonpay/cli)'
+    ],
+    setupCommand: 'npx agentic-wallet card create',
+    docsUrl: 'https://www.moonpay.com/agents/card'
   }
 ];
 
@@ -141,6 +162,24 @@ export async function providers(options: ProvidersOptions = {}): Promise<void> {
   console.log();
   console.log(chalk.gray('   Setup: npx agentic-wallet setup --provider crossmint'));
   console.log(chalk.gray('   Docs:  https://docs.crossmint.com/introduction/platform-overview'));
+  console.log();
+
+  // MoonAgents Card (MoonPay)
+  console.log(chalk.cyan.bold('5. MOONAGENTS CARD (by MoonPay + Monavate)'));
+  console.log(chalk.gray('   Type: Spending / Debit Card'));
+  console.log(chalk.gray('   Storage: Self-custodial — funds stay onchain until purchase'));
+  console.log();
+  console.log('   ' + chalk.green('✓') + ' Virtual Mastercard debit card for AI agents');
+  console.log('   ' + chalk.green('✓') + ' Spend stablecoins at any online Mastercard merchant globally');
+  console.log('   ' + chalk.green('✓') + ' Funds stay in wallet until moment of purchase (no pre-loading)');
+  console.log('   ' + chalk.green('✓') + ' Programmable spending caps and instant freeze/revoke');
+  console.log('   ' + chalk.green('✓') + ' Full transaction logging for agent audit trails');
+  console.log('   ' + chalk.yellow('⚠') + ' Requires KYC identity verification (via Monavate)');
+  console.log('   ' + chalk.yellow('⚠') + ' Currently available in UK and LATAM (US/EU planned)');
+  console.log('   ' + chalk.yellow('⚠') + ' Requires MoonPay CLI: npm install -g @moonpay/cli');
+  console.log();
+  console.log(chalk.gray('   Setup: npx agentic-wallet card create'));
+  console.log(chalk.gray('   Docs:  https://www.moonpay.com/agents/card'));
   console.log();
 
   console.log(chalk.gray('═'.repeat(70)));
